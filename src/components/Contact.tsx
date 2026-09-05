@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 import Container from "./Container";
 import Button from "./Button";
 import Reveal from "./Reveal";
@@ -8,12 +8,23 @@ import Reveal from "./Reveal";
 // TODO: replace with your own Formspree form ID (formspree.io — free tier).
 // Sign up, create a form, and swap this endpoint. Until you do, submissions
 // will fail gracefully and point the visitor to the email address instead.
-const FORM_ENDPOINT = "https://formspree.io/f/YOUR_FORM_ID";
+// const FORM_ENDPOINT = "https://formspree.io/f/YOUR_FORM_ID";
 
 export default function Contact() {
   const [status, setStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
+
+  // "Book a demo call" from a project's gallery jumps here (href="#contact")
+  // and fires this event so the form opens straight into demo mode.
+  useEffect(() => {
+    function handleDemoRequest() {
+      setDemoMode(true);
+      document.getElementById("name")?.focus({ preventScroll: true });
+    }
+    window.addEventListener("zovak:request-demo", handleDemoRequest);
+    return () => window.removeEventListener("zovak:request-demo", handleDemoRequest);
+  }, []);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -32,10 +43,9 @@ export default function Contact() {
     setStatus("");
 
     try {
-      const response = await fetch(FORM_ENDPOINT, {
+      const response = await fetch("/api/contact", {
         method: "POST",
         body: formData,
-        headers: { Accept: "application/json" },
       });
 
       if (response.ok) {
@@ -103,8 +113,8 @@ export default function Contact() {
                 <a href="mailto:zovaktech@gmail.com" className="transition-colors hover:text-accent2">
                   zovaktech@gmail.com
                 </a>
-                <a href="tel:+15550101234" className="transition-colors hover:text-accent2">
-                  +1 (555) 010-1234
+                <a href="tel:+46 76 899 71 99" className="transition-colors hover:text-accent2">
+                +46 76 899 71 99
                 </a>
               </div>
             </Reveal>
