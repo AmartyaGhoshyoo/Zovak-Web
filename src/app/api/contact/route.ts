@@ -23,8 +23,8 @@ export async function POST(request: Request) {
     }
 
     const { data, error } = await resend.emails.send({
-      from: "onboarding@resend.dev",
-      to: ["b22cs002@nitm.ac.in"],
+      from: "Zovak Technologies <contact@zovak.tech>",
+      to: ["zovaktech@gmail.com"],
       replyTo: email,
       subject: `${requestType} from ${name}`,
       html: `
