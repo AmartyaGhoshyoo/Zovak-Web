@@ -47,7 +47,6 @@ export default function Header() {
 
   return (
     <header
-      id="top"
       className={`sticky top-0 z-50 transition-[background-color,border-color] duration-300 ${
         scrolled || open
           ? "border-b border-border bg-ink/85 backdrop-blur-xl"
