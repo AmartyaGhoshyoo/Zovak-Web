@@ -1,19 +1,20 @@
 "use client";
 
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode } from "react";
+import { motion } from "motion/react";
 
 interface RevealProps {
   children: ReactNode;
   className?: string;
-  delay?: number;
+  delay?: number; // ms
   direction?: "up" | "down" | "left" | "right";
 }
 
-const hiddenByDirection: Record<NonNullable<RevealProps["direction"]>, string> = {
-  up: "opacity-0 translate-y-8",
-  down: "opacity-0 -translate-y-8",
-  left: "opacity-0 -translate-x-8",
-  right: "opacity-0 translate-x-8",
+const offset: Record<NonNullable<RevealProps["direction"]>, { x?: number; y?: number }> = {
+  up: { y: 24 },
+  down: { y: -24 },
+  left: { x: -24 },
+  right: { x: 24 },
 };
 
 export default function Reveal({
@@ -22,46 +23,15 @@ export default function Reveal({
   delay = 0,
   direction = "up",
 }: RevealProps) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-
-    const prefersReducedMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
-
-    if (prefersReducedMotion) {
-      setVisible(true);
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const entry = entries[0];
-        if (entry && entry.isIntersecting) {
-          setVisible(true);
-          observer.unobserve(node);
-        }
-      },
-      { threshold: 0.12, rootMargin: "0px 0px -40px 0px" }
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
   return (
-    <div
-      ref={ref}
-      style={{ transitionDelay: visible ? `${delay}ms` : "0ms" }}
-      className={`transition-all duration-700 ease-out will-change-transform ${
-        visible ? "translate-x-0 translate-y-0 opacity-100" : hiddenByDirection[direction]
-      } ${className}`}
+    <motion.div
+      className={className}
+      initial={{ opacity: 0, filter: "blur(6px)", ...offset[direction] }}
+      whileInView={{ opacity: 1, filter: "blur(0px)", x: 0, y: 0 }}
+      viewport={{ once: true, margin: "0px 0px -60px 0px" }}
+      transition={{ duration: 0.8, delay: delay / 1000, ease: [0.22, 1, 0.36, 1] }}
     >
       {children}
-    </div>
+    </motion.div>
   );
 }

@@ -1,19 +1,21 @@
 import { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
 
-type Variant = "primary" | "ghost";
+type Variant = "primary" | "ghost" | "dark" | "light";
 type Size = "md" | "sm";
 
 const base =
-  "group relative inline-flex items-center gap-2 overflow-hidden rounded-full font-semibold whitespace-nowrap transition-transform duration-150 hover:-translate-y-0.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent2 focus-visible:outline-offset-2";
+  "group relative inline-flex cursor-pointer items-center justify-center gap-2 rounded-full font-medium whitespace-nowrap transition-[background-color,border-color,color,transform] duration-200 active:scale-[0.98]";
 
 const variants: Record<Variant, string> = {
   primary: "bg-accent text-ink hover:bg-accent-hover",
-  ghost: "bg-transparent text-text border border-border-strong hover:border-accent2 hover:text-accent2",
+  dark: "bg-text text-ink hover:bg-black",
+  light: "bg-accent2 text-night hover:bg-mint", // for use on forest-green sections
+  ghost: "bg-transparent text-text border border-border-strong hover:border-text/40 hover:bg-ink-elev",
 };
 
 const sizes: Record<Size, string> = {
-  md: "px-6 py-[13px] text-[0.95rem]",
-  sm: "px-[18px] py-[9px] text-sm",
+  md: "h-12 px-6 text-[0.95rem]",
+  sm: "h-9 px-4 text-sm",
 };
 
 interface CommonProps {
@@ -21,6 +23,7 @@ interface CommonProps {
   size?: Size;
   className?: string;
   children: ReactNode;
+  arrow?: boolean;
 }
 
 type LinkButtonProps = CommonProps &
@@ -31,37 +34,38 @@ type NativeButtonProps = CommonProps &
 
 type ButtonProps = LinkButtonProps | NativeButtonProps;
 
-function Shine({ variant }: { variant: Variant }) {
-  if (variant !== "primary") return null;
+function Arrow() {
   return (
     <span
       aria-hidden="true"
-      className="pointer-events-none absolute inset-y-0 w-10 -skew-x-12 bg-white/25 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-hover:animate-shine"
-    />
+      className="relative inline-block overflow-hidden transition-transform duration-300 group-hover:translate-x-0.5"
+    >
+      →
+    </span>
   );
 }
 
 export default function Button(props: ButtonProps) {
-  const { variant = "primary", size = "md", className = "", children } = props;
+  const { variant = "primary", size = "md", className = "", children, arrow = false } = props;
   const classes = `${base} ${variants[variant]} ${sizes[size]} ${className}`;
 
   if (props.as === "button") {
-    const { as: _as, variant: _v, size: _s, className: _c, children: _ch, ...rest } = props;
+    const { as: _as, variant: _v, size: _s, className: _c, children: _ch, arrow: _a, ...rest } = props;
     return (
       <button className={classes} {...rest}>
-        <Shine variant={variant} />
-        <span className="relative">{children}</span>
+        {children}
+        {arrow && <Arrow />}
       </button>
     );
   }
 
-  const { href, as: _as, variant: _v, size: _s, className: _c, children: _ch, ...rest } =
+  const { href, as: _as, variant: _v, size: _s, className: _c, children: _ch, arrow: _a, ...rest } =
     props as LinkButtonProps;
 
   return (
     <a href={href} className={classes} {...rest}>
-      <Shine variant={variant} />
-      <span className="relative">{children}</span>
+      {children}
+      {arrow && <Arrow />}
     </a>
   );
 }

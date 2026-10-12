@@ -17,6 +17,7 @@ export interface WorkItem {
   image?: string; // path under /public, e.g. "/work/orbit.jpg" — cover image, takes priority over gradient
   images?: string[]; // full gallery for this project, e.g. 4-5 shots: hero, detail views, mobile, etc.
   href?: string; // anchor to scroll to (e.g. "#contact") when there's no live site yet
+  upcomingShots?: number; // blank "coming soon" slots shown in the gallery until real images are added
   liveUrl?: string; // full https URL to the live/deployed site — when set, the
   // gallery's CTA becomes "View live site" and opens this in a new tab.
   // Leave unset and the CTA becomes "Book a demo call", linking to `href`.

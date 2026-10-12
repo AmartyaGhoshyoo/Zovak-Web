@@ -1,17 +1,26 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import Container from "./Container";
 import Button from "./Button";
 import Reveal from "./Reveal";
+import SectionHeading from "./SectionHeading";
+import { openAssistant } from "./assistant/events";
 
-// TODO: replace with your own Formspree form ID (formspree.io — free tier).
-// Sign up, create a form, and swap this endpoint. Until you do, submissions
-// will fail gracefully and point the visitor to the email address instead.
-// const FORM_ENDPOINT = "https://formspree.io/f/YOUR_FORM_ID";
+const CONTACT_EMAIL = "zovaktech@gmail.com";
+const CONTACT_PHONE = "+46 76 899 71 99";
+
+const MODES = [
+  { id: "project", label: "Start a project" },
+  { id: "demo", label: "Just a demo" },
+] as const;
+
+const fieldClass =
+  "w-full rounded-xl border border-border-strong bg-ink px-3.5 py-3 text-[0.95rem] text-text placeholder:text-text-faint/80 transition-colors duration-200 focus:border-accent focus:outline-none focus-visible:outline-none focus:ring-4 focus:ring-accent/10";
 
 export default function Contact() {
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [demoMode, setDemoMode] = useState(false);
 
@@ -31,7 +40,7 @@ export default function Contact() {
     const form = e.currentTarget;
 
     if (!form.checkValidity()) {
-      setStatus("Please fill in all required fields.");
+      form.reportValidity();
       return;
     }
 
@@ -40,176 +49,179 @@ export default function Contact() {
     if (demoMode) formData.set("request-type", "Demo call request");
 
     setSubmitting(true);
-    setStatus("");
+    setStatus(null);
 
     try {
-      const response = await fetch("/api/contact", {
-        method: "POST",
-        body: formData,
-      });
+      const response = await fetch("/api/contact", { method: "POST", body: formData });
 
       if (response.ok) {
-        setStatus(
-          `Thanks${firstName ? ", " + firstName : ""} — we'll reply within one business day.`
-        );
+        setStatus({
+          kind: "ok",
+          text: `Thanks${firstName ? ", " + firstName : ""} — we'll reply within one business day.`,
+        });
         form.reset();
         setDemoMode(false);
       } else {
-        setStatus(
-          "Something went wrong on our end — please email us directly at zovaktech@gmail.com."
-        );
+        setStatus({ kind: "error", text: `Something went wrong — please email us at ${CONTACT_EMAIL}.` });
       }
     } catch {
-      setStatus(
-        "Something went wrong on our end — please email us directly at zovaktech@gmail.com."
-      );
+      setStatus({ kind: "error", text: `Something went wrong — please email us at ${CONTACT_EMAIL}.` });
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <section id="contact" className="relative overflow-hidden py-16 md:py-24">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-accent/50 to-transparent"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute right-[-10%] top-10 h-[380px] w-[380px] rounded-full bg-accent/10 blur-[110px] animate-pulse-glow motion-reduce:animate-none"
-      />
-
+    <section id="contact" className="scroll-mt-16 py-16 md:py-24">
       <Container>
-        <div className="relative overflow-hidden rounded-[28px] border border-border bg-ink-soft p-7 shadow-[0_40px_90px_-50px_rgba(60,45,20,0.14)] md:p-10 lg:p-12">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -left-20 top-0 h-56 w-56 rounded-full bg-accent2/10 blur-[80px]"
-          />
+        <motion.div
+          initial={{ opacity: 0, y: 40, scale: 0.98 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
+          viewport={{ once: true, margin: "0px 0px -80px 0px" }}
+          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+          className="relative overflow-hidden rounded-[32px] bg-forest p-6 shadow-[0_50px_100px_-50px_rgba(31,78,58,0.7)] sm:p-10 lg:p-14"
+        >
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+            <motion.div
+              className="absolute -right-24 -top-24 h-[420px] w-[420px] rounded-full bg-accent2/30 blur-[120px]"
+              animate={{ scale: [1, 1.15, 1], opacity: [0.7, 1, 0.7] }}
+              transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
+            />
+            <div className="absolute -bottom-32 left-10 h-[360px] w-[360px] rounded-full bg-night/50 blur-[110px]" />
+          </div>
+          <div className="relative grid grid-cols-1 items-start gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+            <div>
+              <SectionHeading
+                tone="dark"
+                eyebrow="Let's talk"
+                title="Tell us what you're building."
+                description="Send a few details and we'll reply within one business day — or book a quick call to see our work, no project details needed."
+              />
 
-          <div className="relative grid grid-cols-1 items-start gap-12 lg:grid-cols-[0.9fr_1.1fr]">
-            <Reveal direction="left">
-              <p className="mb-3.5 font-mono text-[0.8rem] text-accent2">// let&apos;s talk</p>
-              <h2 className="mb-4 font-display text-[1.9rem] font-semibold tracking-tight md:text-[2.75rem]">
-                Tell us what you&apos;re building.
-              </h2>
-              <p className="mb-8 max-w-[440px] text-[1.02rem] text-text-muted">
-                Send a few details and we&apos;ll reply within one business day
-                — or just book a quick call to see our work, no project
-                details needed.
-              </p>
+              <Reveal delay={120}>
+                <dl className="mt-12 space-y-5 border-t border-ink/15 pt-8">
+                  <div>
+                    <dt className="text-[0.8rem] text-ink/50">Email</dt>
+                    <dd className="mt-1">
+                      <a href={`mailto:${CONTACT_EMAIL}`} className="text-[1.05rem] text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-accent2">
+                        {CONTACT_EMAIL}
+                      </a>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[0.8rem] text-ink/50">Phone</dt>
+                    <dd className="mt-1">
+                      <a href={`tel:${CONTACT_PHONE.replace(/\s/g, "")}`} className="text-[1.05rem] text-ink underline decoration-ink/25 underline-offset-4 transition-colors hover:decoration-accent2">
+                        {CONTACT_PHONE}
+                      </a>
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="text-[0.8rem] text-ink/50">Prefer to ask first?</dt>
+                    <dd className="mt-1">
+                      <button
+                        type="button"
+                        onClick={() => openAssistant("chat")}
+                        className="cursor-pointer text-[1.05rem] text-accent2 underline decoration-accent2/30 underline-offset-4 transition-colors hover:decoration-accent2"
+                      >
+                        Chat with our AI assistant →
+                      </button>
+                    </dd>
+                  </div>
+                </dl>
+              </Reveal>
+            </div>
 
-              <div className="mb-8 grid grid-cols-2 gap-3 max-w-[380px]">
-                <div className="rounded-xl border border-border bg-ink px-4 py-3">
-                  <p className="font-mono text-[0.7rem] text-text-faint">Reply time</p>
-                  <p className="mt-1 font-display text-lg font-semibold">1 business day</p>
-                </div>
-                <div className="rounded-xl border border-border bg-ink px-4 py-3">
-                  <p className="font-mono text-[0.7rem] text-text-faint">Kickoff</p>
-                  <p className="mt-1 font-display text-lg font-semibold">This week</p>
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-2 font-mono text-[0.95rem]">
-                <a href="mailto:zovaktech@gmail.com" className="transition-colors hover:text-accent2">
-                  zovaktech@gmail.com
-                </a>
-                <a href="tel:+46 76 899 71 99" className="transition-colors hover:text-accent2">
-                +46 76 899 71 99
-                </a>
-              </div>
-            </Reveal>
-
-            <Reveal delay={140} direction="right">
+            <Reveal delay={150}>
               <form
                 id="contact-form"
                 onSubmit={handleSubmit}
-                className="rounded-2xl border border-border-strong bg-ink p-6 md:p-7"
+                noValidate
+                className="rounded-2xl border border-border bg-ink-elev p-6 shadow-[0_30px_60px_-30px_rgba(0,0,0,0.35)] md:p-8"
               >
-                <label
-                  htmlFor="demo-mode"
-                  className="mb-5 flex cursor-pointer items-start gap-3 rounded-xl border border-border-strong bg-ink-elev p-3.5 transition-colors duration-200 hover:border-accent/50"
-                >
-                  <input
-                    type="checkbox"
-                    id="demo-mode"
-                    checked={demoMode}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setDemoMode(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 accent-accent"
-                  />
-                  <span className="text-[0.85rem] text-text-muted">
-                    <span className="font-semibold text-text">
-                      I just want to see a demo
-                    </span>{" "}
-                    — skip the project type and budget, we&apos;ll cover that
-                    on the call.
-                  </span>
-                </label>
-
-                <div className="mb-4 flex flex-col gap-1.5">
-                  <label htmlFor="name" className="text-[0.82rem] text-text-muted">
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    required
-                    placeholder="Jane Doe"
-                    className="rounded-lg border border-border-strong bg-ink-elev px-3 py-2.5 text-[0.95rem] text-text placeholder:text-text-faint transition-colors duration-200 focus:border-accent focus:outline-none"
-                  />
+                <div role="radiogroup" aria-label="Request type" className="mb-7 grid grid-cols-2 gap-1 rounded-full bg-ink-soft p-1">
+                  {MODES.map((mode) => {
+                    const active = (mode.id === "demo") === demoMode;
+                    return (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        onClick={() => setDemoMode(mode.id === "demo")}
+                        className={`relative cursor-pointer rounded-full py-2.5 text-[0.88rem] font-medium transition-colors duration-200 ${
+                          active ? "text-text" : "text-text-faint hover:text-text-muted"
+                        }`}
+                      >
+                        {active && (
+                          <motion.span
+                            layoutId="contact-mode"
+                            className="absolute inset-0 rounded-full bg-ink-elev shadow-sm ring-1 ring-border"
+                            transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                          />
+                        )}
+                        <span className="relative">{mode.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
 
-                <div className="mb-4 flex flex-col gap-1.5">
-                  <label htmlFor="email" className="text-[0.82rem] text-text-muted">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    name="email"
-                    required
-                    placeholder="jane@company.com"
-                    className="rounded-lg border border-border-strong bg-ink-elev px-3 py-2.5 text-[0.95rem] text-text placeholder:text-text-faint transition-colors duration-200 focus:border-accent focus:outline-none"
-                  />
-                </div>
-
-                {!demoMode && (
-                  <div className="mb-4 flex flex-col gap-3.5 sm:flex-row">
-                    <div className="flex flex-1 flex-col gap-1.5">
-                      <label htmlFor="project-type" className="text-[0.82rem] text-text-muted">
-                        Project type
-                      </label>
-                      <select
-                        id="project-type"
-                        name="project-type"
-                        className="rounded-lg border border-border-strong bg-ink-elev px-3 py-2.5 text-[0.95rem] text-text transition-colors duration-200 focus:border-accent focus:outline-none"
-                      >
-                        <option>Website</option>
-                        <option>App</option>
-                        <option>AI solution</option>
-                        <option>Something else</option>
-                      </select>
-                    </div>
-                    <div className="flex flex-1 flex-col gap-1.5">
-                      <label htmlFor="budget" className="text-[0.82rem] text-text-muted">
-                        Budget
-                      </label>
-                      <select
-                        id="budget"
-                        name="budget"
-                        className="rounded-lg border border-border-strong bg-ink-elev px-3 py-2.5 text-[0.95rem] text-text transition-colors duration-200 focus:border-accent focus:outline-none"
-                      >
-                        <option>Under $5k</option>
-                        <option>$5k – $15k</option>
-                        <option>$15k – $50k</option>
-                        <option>$50k+</option>
-                      </select>
-                    </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="name" className="text-[0.82rem] font-medium text-text-muted">
+                      Name
+                    </label>
+                    <input type="text" id="name" name="name" required autoComplete="name" placeholder="Jane Doe" className={fieldClass} />
                   </div>
-                )}
+                  <div className="flex flex-col gap-1.5">
+                    <label htmlFor="email" className="text-[0.82rem] font-medium text-text-muted">
+                      Email
+                    </label>
+                    <input type="email" id="email" name="email" required autoComplete="email" placeholder="jane@company.com" className={fieldClass} />
+                  </div>
+                </div>
 
-                <div className="mb-4 flex flex-col gap-1.5">
-                  <label htmlFor="message" className="text-[0.82rem] text-text-muted">
+                <AnimatePresence initial={false}>
+                  {!demoMode && (
+                    <motion.div
+                      key="project-fields"
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.35 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="grid gap-4 pt-4 sm:grid-cols-2">
+                        <div className="flex flex-col gap-1.5">
+                          <label htmlFor="project-type" className="text-[0.82rem] font-medium text-text-muted">
+                            Project type
+                          </label>
+                          <select id="project-type" name="project-type" className={fieldClass}>
+                            <option>Brand</option>
+                            <option>Website</option>
+                            <option>App / product</option>
+                            <option>AI solution</option>
+                            <option>Something else</option>
+                          </select>
+                        </div>
+                        <div className="flex flex-col gap-1.5">
+                          <label htmlFor="budget" className="text-[0.82rem] font-medium text-text-muted">
+                            Budget
+                          </label>
+                          <select id="budget" name="budget" className={fieldClass}>
+                            <option>Under $5k</option>
+                            <option>$5k – $15k</option>
+                            <option>$15k – $50k</option>
+                            <option>$50k+</option>
+                          </select>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <div className="mt-4 flex flex-col gap-1.5">
+                  <label htmlFor="message" className="text-[0.82rem] font-medium text-text-muted">
                     {demoMode ? "Notes (optional)" : "Project details"}
                   </label>
                   <textarea
@@ -217,35 +229,34 @@ export default function Contact() {
                     name="message"
                     rows={4}
                     required={!demoMode}
-                    placeholder={
-                      demoMode
-                        ? "Any specific projects you'd like to see on the call?"
-                        : "What are you trying to build?"
-                    }
-                    className="resize-y rounded-lg border border-border-strong bg-ink-elev px-3 py-2.5 text-[0.95rem] text-text placeholder:text-text-faint transition-colors duration-200 focus:border-accent focus:outline-none"
+                    placeholder={demoMode ? "Anything you'd like to see on the call?" : "What are you trying to build?"}
+                    className={`${fieldClass} resize-y`}
                   />
                 </div>
 
-                <Button
-                  as="button"
-                  type="submit"
-                  disabled={submitting}
-                  className="mt-1.5 w-full justify-center disabled:opacity-60"
-                >
-                  {submitting
-                    ? "Sending..."
-                    : demoMode
-                      ? "Book a demo call"
-                      : "Send message"}
+                <Button as="button" type="submit" disabled={submitting} className="mt-6 w-full disabled:cursor-wait disabled:opacity-60" arrow={!submitting}>
+                  {submitting ? "Sending…" : demoMode ? "Book a demo call" : "Send message"}
                 </Button>
 
-                <p className="mt-2.5 min-h-[1.2em] text-[0.85rem] text-accent2" role="status">
-                  {status}
-                </p>
+                <div role="status" aria-live="polite" className="min-h-[1.5rem]">
+                  <AnimatePresence mode="wait">
+                    {status && (
+                      <motion.p
+                        key={status.text}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0 }}
+                        className={`mt-3 text-[0.88rem] ${status.kind === "ok" ? "text-accent" : "text-[#A23B2A]"}`}
+                      >
+                        {status.text}
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+                </div>
               </form>
             </Reveal>
           </div>
-        </div>
+        </motion.div>
       </Container>
     </section>
   );

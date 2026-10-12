@@ -6,6 +6,9 @@ import { WorkItem } from "@/types";
 // the gallery UI adapts automatically (no arrows/thumbnails show up for a
 // single-image project).
 //
+// `upcomingShots` reserves blank "coming soon" slides in that project's
+// gallery. When you add a real image to `images`, lower the count by one.
+//
 // Set `liveUrl` to the deployed site once a project is live and the
 // gallery's CTA switches from "Book a demo call" to "View live site".
 
@@ -17,6 +20,7 @@ export const work: WorkItem[] = [
     gradient: "from-accent to-[#8B5E34]",
     image: "/work/Concept_2.png",
     images: ["/work/Concept_2.png"],
+    upcomingShots: 3,
     href: "#contact",
     // liveUrl: "https://example.com",
   },

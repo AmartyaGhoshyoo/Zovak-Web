@@ -1,17 +1,30 @@
 "use client";
 
-import { MouseEvent, useEffect, useState } from "react";
+import { MouseEvent, useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { AnimatePresence, PanInfo, motion } from "motion/react";
 import { WorkItem } from "@/types";
+import { projectSlides } from "@/lib/work";
+import { PlaceholderSlide } from "./work/SlideView";
 
 interface WorkLightboxProps {
   item: WorkItem;
+  title: string;
   initialIndex?: number;
   onClose: () => void;
 }
 
+const ease = [0.22, 1, 0.36, 1] as const;
+
+const slideVariants = {
+  enter: (dir: number) => ({ x: dir > 0 ? "18%" : "-18%", opacity: 0, scale: 0.96 }),
+  center: { x: "0%", opacity: 1, scale: 1 },
+  exit: (dir: number) => ({ x: dir > 0 ? "-18%" : "18%", opacity: 0, scale: 0.96 }),
+};
+
 function IconClose() {
   return (
-    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+    <svg width="14" height="14" viewBox="0 0 18 18" fill="none" aria-hidden="true">
       <path d="M1 1L17 17M17 1L1 17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
@@ -19,58 +32,22 @@ function IconClose() {
 
 function IconChevron({ direction }: { direction: "left" | "right" }) {
   return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 20 20"
-      fill="none"
-      aria-hidden="true"
-      className={direction === "left" ? "" : "rotate-180"}
-    >
-      <path
-        d="M12.5 4L6.5 10L12.5 16"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true" className={direction === "left" ? "" : "rotate-180"}>
+      <path d="M12.5 4L6.5 10L12.5 16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
 
-function IconZoom({ zoomedIn }: { zoomedIn: boolean }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <circle cx="7" cy="7" r="5.2" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M11 11L14.5 14.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M4.6 7H9.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      {!zoomedIn && <path d="M7 4.6V9.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />}
-    </svg>
-  );
-}
+export default function WorkLightbox({ item, title, initialIndex = 0, onClose }: WorkLightboxProps) {
+  const slides = projectSlides(item);
 
-export default function WorkLightbox({ item, initialIndex = 0, onClose }: WorkLightboxProps) {
-  const gallery =
-    item.images && item.images.length > 0
-      ? item.images
-      : item.image
-        ? [item.image]
-        : [];
-
-  const [index, setIndex] = useState(Math.min(initialIndex, gallery.length - 1));
-  const [mounted, setMounted] = useState(false);
-  const [closing, setClosing] = useState(false);
+  const [[index, direction], setPage] = useState<[number, number]>([initialIndex, 0]);
   const [zoomed, setZoomed] = useState(false);
   const [origin, setOrigin] = useState("50% 50%");
+  const dragged = useRef(false);
 
-  const hasMultiple = gallery.length > 1;
-  const isLive = Boolean(item.liveUrl);
-
-  // Mount transition
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => setMounted(true));
-    return () => cancelAnimationFrame(raf);
-  }, []);
+  const hasMultiple = slides.length > 1;
+  const current = slides[index] ?? slides[0];
 
   // Lock scroll while open
   useEffect(() => {
@@ -81,22 +58,18 @@ export default function WorkLightbox({ item, initialIndex = 0, onClose }: WorkLi
     };
   }, []);
 
-  function requestClose() {
-    setClosing(true);
-    window.setTimeout(onClose, 220);
-  }
-
-  function goTo(next: number) {
+  function goTo(next: number, dir?: number) {
     setZoomed(false);
-    setIndex((next + gallery.length) % gallery.length);
+    const wrapped = (next + slides.length) % slides.length;
+    setPage([wrapped, dir ?? (next > index ? 1 : -1)]);
   }
 
   // Keyboard navigation
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") requestClose();
-      if (e.key === "ArrowRight" && hasMultiple) goTo(index + 1);
-      if (e.key === "ArrowLeft" && hasMultiple) goTo(index - 1);
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight" && hasMultiple) goTo(index + 1, 1);
+      if (e.key === "ArrowLeft" && hasMultiple) goTo(index - 1, -1);
     }
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
@@ -104,6 +77,8 @@ export default function WorkLightbox({ item, initialIndex = 0, onClose }: WorkLi
   }, [index, hasMultiple]);
 
   function handleImageClick(e: MouseEvent<HTMLDivElement>) {
+    // A swipe ends with a click event — don't treat it as a zoom
+    if (dragged.current || current?.kind !== "image") return;
     const rect = e.currentTarget.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
@@ -111,163 +86,192 @@ export default function WorkLightbox({ item, initialIndex = 0, onClose }: WorkLi
     setZoomed((z) => !z);
   }
 
-  function requestDemo() {
-    window.dispatchEvent(new CustomEvent("zovak:request-demo"));
-    requestClose();
-    window.setTimeout(() => {
-      document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" });
-    }, 230);
+  function handleDragEnd(_: unknown, info: PanInfo) {
+    setTimeout(() => (dragged.current = false), 0);
+    const swipe = info.offset.x + info.velocity.x * 0.2;
+    if (swipe < -80) goTo(index + 1, 1);
+    else if (swipe > 80) goTo(index - 1, -1);
   }
 
-  if (gallery.length === 0) return null;
+  function requestDemo() {
+    window.dispatchEvent(new CustomEvent("zovak:request-demo"));
+    onClose();
+    window.setTimeout(() => {
+      document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" });
+    }, 250);
+  }
+
+  if (!current) return null;
 
   return (
-    <div
+    <motion.div
       role="dialog"
       aria-modal="true"
-      aria-label={`${item.name || "Project"} gallery`}
-      className={`fixed inset-0 z-[100] flex items-center justify-center p-4 transition-opacity duration-200 ease-out md:p-8 ${
-        mounted && !closing ? "opacity-100" : "opacity-0"
-      }`}
+      aria-label={`${title} gallery`}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 md:p-8"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.25 }}
     >
-      {/* Backdrop */}
-      <div
-        aria-hidden="true"
-        onClick={requestClose}
-        className="absolute inset-0 bg-[#14231C]/85 backdrop-blur-sm"
-      />
+      <div aria-hidden="true" onClick={onClose} className="absolute inset-0 bg-night/85 backdrop-blur-md" />
 
-      {/* Panel */}
-      <div
-        className={`relative flex w-full max-w-[1040px] flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[#0E1712] shadow-[0_60px_140px_-40px_rgba(0,0,0,0.6)] transition-all duration-300 ease-out ${
-          mounted && !closing ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-[0.97] opacity-0"
-        }`}
+      <motion.div
+        initial={{ opacity: 0, y: 40, scale: 0.94, rotateX: 8 }}
+        animate={{ opacity: 1, y: 0, scale: 1, rotateX: 0 }}
+        exit={{ opacity: 0, y: 24, scale: 0.97 }}
+        transition={{ duration: 0.5, ease }}
+        style={{ transformPerspective: 1400 }}
+        className="relative flex w-full max-w-[1100px] flex-col overflow-hidden rounded-2xl bg-night ring-1 ring-night-line"
       >
         {/* Header */}
-        <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4 md:px-7">
+        <div className="flex items-center justify-between gap-4 px-5 py-4 md:px-6">
           <div className="min-w-0">
-            <p className="font-mono text-[0.7rem] tracking-wide text-accent2">{item.type}</p>
-            {item.name && (
-              <h3 className="truncate font-display text-lg font-semibold text-white md:text-xl">
-                {item.name}
-              </h3>
-            )}
+            <p className="text-[0.72rem] uppercase tracking-[0.14em] text-accent2">{item.type}</p>
+            <h3 className="truncate font-display text-lg text-ink">{title}</h3>
           </div>
-          <button
-            type="button"
-            onClick={requestClose}
-            aria-label="Close gallery"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 text-white/70 transition-colors duration-200 hover:border-white/35 hover:text-white"
-          >
-            <IconClose />
-          </button>
+          <div className="flex items-center gap-3">
+            {hasMultiple && (
+              <span className="font-mono text-[0.75rem] text-ink/50">
+                {String(index + 1).padStart(2, "0")} / {String(slides.length).padStart(2, "0")}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close gallery"
+              className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-ink/5 text-ink/70 transition-colors duration-200 hover:bg-ink/10 hover:text-ink"
+            >
+              <IconClose />
+            </button>
+          </div>
         </div>
 
-        {/* Image stage */}
-        <div className="relative aspect-[16/10] w-full overflow-hidden bg-[#0A100D] md:aspect-[16/9]">
-          <div
-            onClick={handleImageClick}
-            className={`h-full w-full ${zoomed ? "cursor-zoom-out" : "cursor-zoom-in"}`}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              key={gallery[index]}
-              src={gallery[index]}
-              alt={`${item.name || "Project"} — view ${index + 1} of ${gallery.length}`}
-              style={{ transformOrigin: origin }}
-              className={`h-full w-full object-contain transition-transform duration-500 ease-out ${
-                zoomed ? "scale-[2]" : "scale-100"
-              }`}
-              draggable={false}
-            />
+        {/* Progress segments */}
+        {hasMultiple && (
+          <div className="flex gap-1.5 px-5 pb-3 md:px-6">
+            {slides.map((_, i) => (
+              <span key={i} className="h-[3px] flex-1 overflow-hidden rounded-full bg-ink/10">
+                <motion.span
+                  className="block h-full origin-left rounded-full bg-accent2"
+                  animate={{ scaleX: i <= index ? 1 : 0 }}
+                  transition={{ duration: 0.4, ease }}
+                />
+              </span>
+            ))}
           </div>
+        )}
 
-          {/* Zoom hint badge */}
-          <span className="pointer-events-none absolute right-4 top-4 flex items-center gap-1.5 rounded-full bg-black/45 px-3 py-1.5 font-mono text-[0.68rem] text-white/80 backdrop-blur-sm">
-            <IconZoom zoomedIn={zoomed} />
-            {zoomed ? "click to zoom out" : "click to zoom in"}
-          </span>
+        {/* Image stage */}
+        <div className="relative aspect-[16/10] w-full overflow-hidden bg-black/20">
+          <AnimatePresence initial={false} custom={direction} mode="popLayout">
+            <motion.div
+              key={index}
+              custom={direction}
+              variants={slideVariants}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              transition={{ duration: 0.5, ease }}
+              drag={hasMultiple && !zoomed ? "x" : false}
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.25}
+              onDragStart={() => (dragged.current = true)}
+              onDragEnd={handleDragEnd}
+              onClick={handleImageClick}
+              className={`absolute inset-0 ${
+                current.kind === "image" ? (zoomed ? "cursor-zoom-out" : "cursor-zoom-in") : "cursor-grab"
+              }`}
+            >
+              {current.kind === "image" ? (
+                <Image
+                  src={current.src}
+                  alt={`${title} — view ${index + 1} of ${slides.length}`}
+                  fill
+                  sizes="(min-width: 1100px) 1100px, 100vw"
+                  quality={85}
+                  priority
+                  draggable={false}
+                  style={{ transformOrigin: origin }}
+                  className={`pointer-events-none select-none object-contain transition-transform duration-500 ease-out ${
+                    zoomed ? "scale-[2]" : "scale-100"
+                  }`}
+                />
+              ) : (
+                <PlaceholderSlide tone="dark" />
+              )}
+            </motion.div>
+          </AnimatePresence>
 
           {hasMultiple && (
             <>
               <button
                 type="button"
-                onClick={() => goTo(index - 1)}
+                onClick={() => goTo(index - 1, -1)}
                 aria-label="Previous image"
-                className="absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition-all duration-200 hover:bg-black/60 md:left-5"
+                className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-night/60 text-ink backdrop-blur transition-all hover:scale-105 hover:bg-forest"
               >
                 <IconChevron direction="left" />
               </button>
               <button
                 type="button"
-                onClick={() => goTo(index + 1)}
+                onClick={() => goTo(index + 1, 1)}
                 aria-label="Next image"
-                className="absolute right-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-sm transition-all duration-200 hover:bg-black/60 md:right-5"
+                className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-night/60 text-ink backdrop-blur transition-all hover:scale-105 hover:bg-forest"
               >
                 <IconChevron direction="right" />
               </button>
-
-              <span className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/45 px-3 py-1 font-mono text-[0.68rem] text-white/80 backdrop-blur-sm">
-                {index + 1} / {gallery.length}
-              </span>
             </>
           )}
         </div>
 
-        {/* Thumbnails + CTA */}
-        <div className="flex flex-col gap-4 border-t border-white/10 px-5 py-4 md:flex-row md:items-center md:justify-between md:px-7">
+        {/* Footer */}
+        <div className="flex flex-col gap-4 px-5 py-4 md:flex-row md:items-center md:justify-between md:px-6">
           {hasMultiple ? (
-            <div className="flex gap-2.5 overflow-x-auto pb-1 md:pb-0">
-              {gallery.map((src, i) => (
+            <div className="flex gap-2 overflow-x-auto p-0.5">
+              {slides.map((slide, i) => (
                 <button
-                  key={src + i}
+                  key={i}
                   type="button"
                   onClick={() => goTo(i)}
-                  aria-label={`View image ${i + 1}`}
+                  aria-label={slide.kind === "image" ? `View image ${i + 1}` : `Slot ${i + 1} — coming soon`}
                   aria-current={i === index}
-                  className={`h-14 w-20 shrink-0 overflow-hidden rounded-lg border-2 transition-all duration-200 ${
-                    i === index
-                      ? "border-accent2 opacity-100"
-                      : "border-transparent opacity-50 hover:opacity-80"
+                  className={`relative h-12 w-[4.5rem] shrink-0 cursor-pointer overflow-hidden rounded-md ring-2 transition-all duration-200 ${
+                    i === index ? "opacity-100 ring-accent2" : "opacity-45 ring-transparent hover:opacity-80"
                   }`}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={src} alt="" className="h-full w-full object-cover" draggable={false} />
+                  {slide.kind === "image" ? (
+                    <Image src={slide.src} alt="" fill sizes="72px" className="object-cover" draggable={false} />
+                  ) : (
+                    <PlaceholderSlide compact tone="dark" />
+                  )}
                 </button>
               ))}
             </div>
           ) : (
-            <p className="font-mono text-[0.72rem] text-white/40">
-              More views coming soon for this project.
-            </p>
+            <p className="text-[0.8rem] text-ink/40">Click the image to zoom · Esc to close</p>
           )}
 
-          {isLive ? (
+          {item.liveUrl ? (
             <a
               href={item.liveUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="group inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 font-mono text-[0.8rem] text-ink transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover"
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-accent2 px-5 text-[0.88rem] font-medium text-night transition-colors hover:bg-mint"
             >
-              View live site
-              <span aria-hidden="true" className="transition-transform duration-200 group-hover:translate-x-0.5">
-                ↗
-              </span>
+              View live site <span aria-hidden="true">↗</span>
             </a>
           ) : (
             <button
               type="button"
               onClick={requestDemo}
-              className="group inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-accent px-5 py-2.5 font-mono text-[0.8rem] text-ink transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-hover"
+              className="inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-full bg-accent2 px-5 text-[0.88rem] font-medium text-night transition-colors hover:bg-mint"
             >
-              Book a demo call
-              <span aria-hidden="true" className="transition-transform duration-200 group-hover:translate-x-0.5">
-                →
-              </span>
+              Book a demo call <span aria-hidden="true">→</span>
             </button>
           )}
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

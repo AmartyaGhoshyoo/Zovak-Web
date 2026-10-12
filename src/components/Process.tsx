@@ -1,57 +1,88 @@
+"use client";
+
+import { useRef } from "react";
+import { MotionValue, motion, useScroll, useSpring, useTransform } from "motion/react";
 import Container from "./Container";
-import Reveal from "./Reveal";
+import SectionHeading from "./SectionHeading";
 import { process } from "@/data/process";
+import { ProcessStep } from "@/types";
+
+const ease = [0.22, 1, 0.36, 1] as const;
+
+function Step({
+  step,
+  index,
+  total,
+  progress,
+}: {
+  step: ProcessStep;
+  index: number;
+  total: number;
+  progress: MotionValue<number>;
+}) {
+  // Each node fills in as the drawn line reaches it
+  const at = total > 1 ? index / (total - 1) : 0;
+  const fill = useTransform(progress, [Math.max(0, at - 0.08), at], [0, 1]);
+  const bg = useTransform(fill, [0, 1], ["#E9DCC2", "#2F6B4F"]);
+  const color = useTransform(fill, [0, 1], ["#2F6B4F", "#F1E7D2"]);
+  const scale = useTransform(fill, [0, 0.6, 1], [1, 1.18, 1]);
+
+  return (
+    <motion.li
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "0px 0px -60px 0px" }}
+      transition={{ duration: 0.8, delay: index * 0.1, ease }}
+      className="relative pl-16 lg:pl-0 lg:pt-20"
+    >
+      <motion.span
+        aria-hidden="true"
+        style={{ backgroundColor: bg, color, scale }}
+        className="absolute left-0 top-0 flex h-11 w-11 items-center justify-center rounded-full border-2 border-accent font-mono text-[0.78rem] font-medium shadow-[0_0_0_6px_#E9DCC2]"
+      >
+        {step.number}
+      </motion.span>
+      <h3 className="font-display text-[1.6rem] tracking-tight">{step.title}</h3>
+      <p className="mt-3 max-w-[32ch] text-[0.95rem] leading-relaxed text-text-muted">{step.description}</p>
+    </motion.li>
+  );
+}
 
 export default function Process() {
+  const ref = useRef<HTMLDivElement>(null);
+  // The connecting line draws itself as the steps scroll through the viewport
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start 80%", "end 60%"] });
+  const progress = useSpring(scrollYProgress, { stiffness: 110, damping: 28 });
+
   return (
-    <section id="process" className="relative overflow-hidden bg-ink-soft py-16 md:py-24">
+    <section id="process" className="relative scroll-mt-16 overflow-hidden bg-ink-soft py-24 md:py-32">
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute -left-24 top-24 h-72 w-72 rounded-full bg-accent2/10 blur-[90px]"
+        className="pointer-events-none absolute -left-40 top-20 h-[420px] w-[420px] rounded-full bg-accent2/25 blur-[130px]"
       />
       <Container className="relative">
-        <Reveal className="mb-14 max-w-[640px]">
-          <p className="mb-3.5 font-mono text-[0.8rem] text-accent2">// how it works</p>
-          <h2 className="mb-4 font-display text-[1.9rem] font-semibold tracking-tight md:text-[2.75rem]">
-            Four steps, no surprises
-          </h2>
-          <p className="text-[1.02rem] text-text-muted">
-            The same process whether you&apos;re commissioning a landing page
-            or a full product.
-          </p>
-        </Reveal>
+        <SectionHeading
+          eyebrow="How it works"
+          title="Four steps, no surprises"
+          description="The same process whether you're commissioning a landing page or a full product."
+          className="mb-16 md:mb-20"
+        />
 
-        <div className="relative">
-          <div className="absolute left-[19px] top-3 bottom-6 w-px bg-gradient-to-b from-accent via-accent2 to-accent lg:hidden" />
-
-          <div className="absolute left-5 right-5 top-[19px] hidden h-px lg:block">
-            <div className="h-px w-full bg-border-strong" />
-            <div className="absolute inset-0 origin-left bg-gradient-to-r from-accent via-accent2 to-accent animate-grow-x motion-reduce:animate-none" />
-            <span className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent shadow-[0_0_16px_rgba(47,107,79,0.55)] animate-bead-travel motion-reduce:animate-none" />
+        <div ref={ref} className="relative">
+          {/* Desktop: horizontal line through the node centres */}
+          <div aria-hidden="true" className="absolute left-[22px] right-[10%] top-[21px] hidden h-[2px] rounded-full bg-border-strong lg:block">
+            <motion.div style={{ scaleX: progress }} className="h-full origin-left rounded-full bg-gradient-to-r from-accent to-accent2" />
+          </div>
+          {/* Mobile: vertical line */}
+          <div aria-hidden="true" className="absolute bottom-4 left-[21px] top-4 w-[2px] rounded-full bg-border-strong lg:hidden">
+            <motion.div style={{ scaleY: progress }} className="h-full w-full origin-top rounded-full bg-gradient-to-b from-accent to-accent2" />
           </div>
 
-          <div className="grid grid-cols-1 gap-8 lg:grid-cols-4 lg:gap-6">
+          <ol className="grid grid-cols-1 gap-14 lg:grid-cols-4 lg:gap-8">
             {process.map((step, index) => (
-              <Reveal key={step.number} delay={index * 140}>
-                <div className="relative pl-12 lg:pl-0 lg:pt-12">
-                  <div
-                    className="absolute left-0 top-0 flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-gradient-to-br from-accent to-[#1F4E3A] font-mono text-[0.78rem] text-ink shadow-[0_0_24px_rgba(47,107,79,0.35)] lg:left-0"
-                    style={{ animationDelay: `${index * 180}ms` }}
-                  >
-                    <span className="animate-node-pulse motion-reduce:animate-none">
-                      {step.number}
-                    </span>
-                  </div>
-                  <div className="rounded-2xl border border-border bg-ink p-6 transition-all duration-500 hover:-translate-y-1 hover:border-accent/40">
-                    <h3 className="mb-2 font-display text-xl font-semibold">
-                      {step.title}
-                    </h3>
-                    <p className="text-[0.94rem] text-text-muted">{step.description}</p>
-                  </div>
-                </div>
-              </Reveal>
+              <Step key={step.number} step={step} index={index} total={process.length} progress={progress} />
             ))}
-          </div>
+          </ol>
         </div>
       </Container>
     </section>
